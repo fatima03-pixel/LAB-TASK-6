@@ -1,0 +1,260 @@
+#ifndef CIRCULARLINKEDLIST_H
+#define CIRCULARLINKEDLIST_H
+
+#include <iostream>
+#include <string>
+#include <utility>
+
+using namespace std;
+
+// ========================================
+// Book Node
+// ========================================
+struct BookNode
+{
+    int bookID;
+    string title;
+    BookNode* next;
+};
+
+// ========================================
+// Circular Linked List Class
+// head points to the last node (pivot)
+// head->next points to the first node
+// ========================================
+class CircularLinkedList
+{
+private:
+    BookNode* head;
+    int count;
+    int displayIndex;   // index of the book currently on the screen
+
+    BookNode* GetNodeAt(int index)
+    {
+        if (head == nullptr) return nullptr;
+        BookNode* current = head->next;
+        for (int i = 0; i < index; i++)
+            current = current->next;
+        return current;
+    }
+
+    void SwapData(BookNode* a, BookNode* b)
+    {
+        swap(a->bookID, b->bookID);
+        swap(a->title, b->title);
+    }
+
+    int NormalizeIndex(int index)
+    {
+        return ((index % count) + count) % count;
+    }
+
+    // Keep the display position valid after removals
+    void FixDisplayIndex()
+    {
+        if (count == 0 || displayIndex >= count)
+            displayIndex = 0;
+    }
+
+public:
+    CircularLinkedList() : head(nullptr), count(0), displayIndex(0) {}
+
+    int GetCount() const { return count; }
+    bool IsEmpty() { return count == 0; }
+    bool IsNotEmpty() { return count > 0; }
+
+    void Insert(BookNode* book)
+    {
+        if (book == nullptr) return;
+        if (head == nullptr)
+        {
+            head = book;
+            book->next = book;
+        }
+        else
+        {
+            book->next = head->next;
+            head->next = book;
+        }
+        count++;
+    }
+
+    BookNode* Remove()
+    {
+        if (IsEmpty()) return nullptr;
+        BookNode* first = head->next;
+        if (first == head)
+            head = nullptr;
+        else
+            head->next = first->next;
+        first->next = nullptr;
+        count--;
+        FixDisplayIndex();
+        return first;
+    }
+
+    void InsertAt(BookNode* book, int index)
+    {
+        if (book == nullptr) return;
+        if (count == 0)
+        {
+            head = book;
+            book->next = book;
+            count++;
+            return;
+        }
+        if (index < 0) index = NormalizeIndex(index);
+        if (index > count) index %= count;
+
+        if (index == 0)
+        {
+            Insert(book);
+            return;
+        }
+        if (index == count)
+        {
+            book->next = head->next;
+            head->next = book;
+            head = book;
+            count++;
+            return;
+        }
+        BookNode* previous = GetNodeAt(index - 1);
+        book->next = previous->next;
+        previous->next = book;
+        count++;
+    }
+
+    BookNode* RemoveAt(int index)
+    {
+        if (IsEmpty()) return nullptr;
+        index = NormalizeIndex(index);
+        if (index == 0) return Remove();
+        BookNode* previous = GetNodeAt(index - 1);
+        BookNode* target = previous->next;
+        previous->next = target->next;
+        if (target == head) head = previous;
+        target->next = nullptr;
+        count--;
+        FixDisplayIndex();
+        return target;
+    }
+
+    void Swap(int index1, int index2)
+    {
+        if (IsEmpty()) return;
+        index1 = NormalizeIndex(index1);
+        index2 = NormalizeIndex(index2);
+        if (index1 == index2) return;
+        SwapData(GetNodeAt(index1), GetNodeAt(index2));
+    }
+
+    void Sort()
+    {
+        if (count < 2) return;
+        BookNode* current = head->next;
+        for (int i = 0; i < count - 1; i++)
+        {
+            BookNode* nextNode = current->next;
+            for (int j = i + 1; j < count; j++)
+            {
+                if (current->bookID > nextNode->bookID)
+                    SwapData(current, nextNode);
+                nextNode = nextNode->next;
+            }
+            current = current->next;
+        }
+    }
+
+    void Reverse()
+    {
+        if (count < 2) return;
+        BookNode* oldTail = head;
+        BookNode* oldFirst = head->next;
+        BookNode* previous = oldTail;
+        BookNode* current = oldFirst;
+        while (current != oldTail)
+        {
+            BookNode* nextNode = current->next;
+            current->next = previous;
+            previous = current;
+            current = nextNode;
+        }
+        oldTail->next = previous;
+        head = oldFirst;
+    }
+
+    // The book currently shown on the display screen
+    BookNode* CurrentBook()
+    {
+        if (IsEmpty()) return nullptr;
+        return GetNodeAt(displayIndex);
+    }
+
+    // Move the display to the next book; wraps from last back to first
+    BookNode* MoveNext(bool& wrapped)
+    {
+        wrapped = false;
+        if (IsEmpty()) return nullptr;
+        displayIndex++;
+        if (displayIndex >= count)
+        {
+            displayIndex = 0;
+            wrapped = true;
+        }
+        return GetNodeAt(displayIndex);
+    }
+
+    void Print()
+    {
+        if (IsEmpty())
+        {
+            cout << "No books in the collection.\n";
+            return;
+        }
+        BookNode* current = head->next;
+        cout << "\nIndex\tBook ID\tTitle\n";
+        cout << "-----------------------------------\n";
+        for (int i = 0; i < count; i++)
+        {
+            cout << i << "\t" << current->bookID << "\t" << current->title;
+            if (i == displayIndex) cout << "    <-- now showing";
+            cout << endl;
+            current = current->next;
+        }
+        cout << "Total books: " << count << endl;
+    }
+
+    CircularLinkedList(const CircularLinkedList& other)
+        : head(nullptr), count(0), displayIndex(other.displayIndex)
+    {
+        if (other.head == nullptr) return;
+        BookNode* current = other.head->next;
+        for (int i = 0; i < other.count; i++)
+        {
+            InsertAt(new BookNode{ current->bookID, current->title, nullptr }, count);
+            current = current->next;
+        }
+    }
+
+    CircularLinkedList& operator=(const CircularLinkedList& other)
+    {
+        if (this == &other) return *this;
+        while (IsNotEmpty()) delete Remove();
+        displayIndex = other.displayIndex;
+        if (other.head == nullptr) return *this;
+        BookNode* current = other.head->next;
+        for (int i = 0; i < other.count; i++)
+        {
+            InsertAt(new BookNode{ current->bookID, current->title, nullptr }, count);
+            current = current->next;
+        }
+        return *this;
+    }
+
+    ~CircularLinkedList()
+    {
+        while (IsNotEmpty()) delete Remove();
+    }
+};
+
